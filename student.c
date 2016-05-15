@@ -42,8 +42,7 @@ int cpu_count;
 /*
  * main() parses command line arguments, initializes globals, and starts simulation
  */
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	/* Parse command line args - must include num_cpus as first, rest optional
 	 * Default is to simulate using just FIFO on given num cpus, if 2nd arg given:
 	 * if -r, use round robin to schedule (must be 3rd arg of time_slice)
@@ -215,8 +214,15 @@ extern void terminate(unsigned int cpu_id) {
  * THIS FUNCTION IS PARTIALLY COMPLETED - REQUIRES MODIFICATION
  */
 extern void wake_up(pcb_t *process) {
-	process->state = PROCESS_READY;
-	addReadyProcess(process);
+	switch(alg) {
+		case FIFO:
+		case RoundRobin:
+			process->state = PROCESS_READY;
+			addReadyProcess(process);
+			break;
+		case StaticPriority:
+			break;
+	}
 }
 
 
@@ -262,24 +268,26 @@ static void addReadyProcess(pcb_t* proc) {
  * THIS FUNCTION IS PARTIALLY COMPLETED - REQUIRES MODIFICATION
  */
 static pcb_t* getReadyProcess(void) {
-
-	// ensure no other process can access ready list while we update it
-	pthread_mutex_lock(&ready_mutex);
-
-	// if list is empty, unlock and return null
-	if (head == NULL) {
-		pthread_mutex_unlock(&ready_mutex);
-		return NULL;
+	switch(alg) {
+		case FIFO:
+		case RoundRobin:
+			// ensure no other process can access ready list while we update it
+			pthread_mutex_lock(&ready_mutex);
+			// if list is empty, unlock and return null
+			if (head == NULL) {
+				pthread_mutex_unlock(&ready_mutex);
+				return NULL;
+			}
+			// get first process to return and update head to point to next process
+			pcb_t* first = head;
+			head = first->next;
+			// if there was no next process, list is now empty, set tail to NULL
+			if (head == NULL) tail = NULL;
+			pthread_mutex_unlock(&ready_mutex);
+			return first;
+			break;
+		case StaticPriority:
+			break;
 	}
-
-	// get first process to return and update head to point to next process
-	pcb_t* first = head;
-	head = first->next;
-
-	// if there was no next process, list is now empty, set tail to NULL
-	if (head == NULL) tail = NULL;
-
-	pthread_mutex_unlock(&ready_mutex);
-	return first;
 }
 
