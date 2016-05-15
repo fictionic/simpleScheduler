@@ -27,7 +27,7 @@ static void schedule(unsigned int cpu_id);
  * just including it here to introduce you to the idea if you haven't seen it before!
  */
 typedef enum {
-    FIFO = 0,
+	FIFO = 0,
 	RoundRobin,
 	StaticPriority
 } scheduler_alg;
@@ -44,12 +44,12 @@ int cpu_count;
  */
 int main(int argc, char *argv[])
 {
-    /* Parse command line args - must include num_cpus as first, rest optional
-     * Default is to simulate using just FIFO on given num cpus, if 2nd arg given:
-     * if -r, use round robin to schedule (must be 3rd arg of time_slice)
-     * if -p, use static priority to schedule
-     */
-    if (argc == 2) {
+	/* Parse command line args - must include num_cpus as first, rest optional
+	 * Default is to simulate using just FIFO on given num cpus, if 2nd arg given:
+	 * if -r, use round robin to schedule (must be 3rd arg of time_slice)
+	 * if -p, use static priority to schedule
+	 */
+	if (argc == 2) {
 		alg = FIFO;
 		printf("running with basic FIFO\n");
 	}
@@ -63,37 +63,37 @@ int main(int argc, char *argv[])
 		printf("running with static priority\n");
 	}
 	else {
-        fprintf(stderr, "Usage: ./os-sim <# CPUs> [ -r <time slice> | -p ]\n"
-            "    Default : FIFO Scheduler\n"
-            "         -r : Round-Robin Scheduler (must also give time slice)\n"
-            "         -p : Static Priority Scheduler\n\n");
-        return -1;
-    }
+		fprintf(stderr, "Usage: ./os-sim <# CPUs> [ -r <time slice> | -p ]\n"
+				"    Default : FIFO Scheduler\n"
+				"         -r : Round-Robin Scheduler (must also give time slice)\n"
+				"         -p : Static Priority Scheduler\n\n");
+		return -1;
+	}
 	fflush(stdout);
 
-    /* atoi converts string to integer */
-    cpu_count = atoi(argv[1]);
+	/* atoi converts string to integer */
+	cpu_count = atoi(argv[1]);
 
-    /* Allocate the current[] array and its mutex */
-    current = malloc(sizeof(pcb_t*) * cpu_count);
-    int i;
-    for (i=0; i<cpu_count; i++) {
-        current[i] = NULL;
-    }
-    assert(current != NULL);
-    pthread_mutex_init(&current_mutex, NULL);
+	/* Allocate the current[] array and its mutex */
+	current = malloc(sizeof(pcb_t*) * cpu_count);
+	int i;
+	for (i=0; i<cpu_count; i++) {
+		current[i] = NULL;
+	}
+	assert(current != NULL);
+	pthread_mutex_init(&current_mutex, NULL);
 
-    /* Initialize other necessary synch constructs */
-    pthread_mutex_init(&ready_mutex, NULL);
-    pthread_cond_init(&ready_empty, NULL);
+	/* Initialize other necessary synch constructs */
+	pthread_mutex_init(&ready_mutex, NULL);
+	pthread_cond_init(&ready_empty, NULL);
 
-    /* Start the simulator in the library */
-    printf("starting simulator\n");
-    fflush(stdout);
-    start_simulator(cpu_count);
+	/* Start the simulator in the library */
+	printf("starting simulator\n");
+	fflush(stdout);
+	start_simulator(cpu_count);
 
 
-    return 0;
+	return 0;
 }
 
 /*
@@ -105,12 +105,12 @@ int main(int argc, char *argv[])
  */
 extern void idle(unsigned int cpu_id)
 {
-  pthread_mutex_lock(&ready_mutex);
-  while (head == NULL) {
-    pthread_cond_wait(&ready_empty, &ready_mutex);
-  }
-  pthread_mutex_unlock(&ready_mutex);
-  schedule(cpu_id);
+	pthread_mutex_lock(&ready_mutex);
+	while (head == NULL) {
+		pthread_cond_wait(&ready_empty, &ready_mutex);
+	}
+	pthread_mutex_unlock(&ready_mutex);
+	schedule(cpu_id);
 }
 
 /*
@@ -130,16 +130,24 @@ extern void idle(unsigned int cpu_id)
  * THIS FUNCTION IS PARTIALLY COMPLETED - REQUIRES MODIFICATION
  */
 static void schedule(unsigned int cpu_id) {
-    pcb_t* proc = getReadyProcess();
+	switch(alg) {
+		case FIFO:
+			pcb_t* proc = getReadyProcess();
+			pthread_mutex_lock(&current_mutex);
+			current[cpu_id] = proc;
+			pthread_mutex_unlock(&current_mutex);
+			if (proc!=NULL) {
+				proc->state = PROCESS_RUNNING;
+			}
+			context_switch(cpu_id, proc, -1); 
+			break;
 
-    pthread_mutex_lock(&current_mutex);
-    current[cpu_id] = proc;
-    pthread_mutex_unlock(&current_mutex);
+		case RoundRobin:
+			break;
 
-    if (proc!=NULL) {
-        proc->state = PROCESS_RUNNING;
-    }
-    context_switch(cpu_id, proc, -1); 
+		case StaticPriority:
+			break;
+	}
 }
 
 
@@ -151,7 +159,8 @@ static void schedule(unsigned int cpu_id) {
  *
  * THIS FUNCTION MUST BE IMPLEMENTED FOR ROUND ROBIN OR PRIORITY SCHEDULING
  */
-extern void preempt(unsigned int cpu_id) {}
+extern void preempt(unsigned int cpu_id) {
+}
 
 
 /*
@@ -164,11 +173,11 @@ extern void preempt(unsigned int cpu_id) {}
  * THIS FUNCTION IS ALREADY COMPLETED - DO NOT MODIFY
  */
 extern void yield(unsigned int cpu_id) {
-    // use lock to ensure thread-safe access to current process
-    pthread_mutex_lock(&current_mutex);
-    current[cpu_id]->state = PROCESS_WAITING;
-    pthread_mutex_unlock(&current_mutex);
-    schedule(cpu_id);
+	// use lock to ensure thread-safe access to current process
+	pthread_mutex_lock(&current_mutex);
+	current[cpu_id]->state = PROCESS_WAITING;
+	pthread_mutex_unlock(&current_mutex);
+	schedule(cpu_id);
 }
 
 
@@ -181,11 +190,11 @@ extern void yield(unsigned int cpu_id) {
  * THIS FUNCTION IS ALREADY COMPLETED - DO NOT MODIFY
  */
 extern void terminate(unsigned int cpu_id) {
-    // use lock to ensure thread-safe access to current process
-    pthread_mutex_lock(&current_mutex);
-    current[cpu_id]->state = PROCESS_TERMINATED;
-    pthread_mutex_unlock(&current_mutex);
-    schedule(cpu_id);
+	// use lock to ensure thread-safe access to current process
+	pthread_mutex_lock(&current_mutex);
+	current[cpu_id]->state = PROCESS_TERMINATED;
+	pthread_mutex_unlock(&current_mutex);
+	schedule(cpu_id);
 }
 
 /*
@@ -206,8 +215,8 @@ extern void terminate(unsigned int cpu_id) {
  * THIS FUNCTION IS PARTIALLY COMPLETED - REQUIRES MODIFICATION
  */
 extern void wake_up(pcb_t *process) {
-    process->state = PROCESS_READY;
-    addReadyProcess(process);
+	process->state = PROCESS_READY;
+	addReadyProcess(process);
 }
 
 
@@ -220,25 +229,25 @@ extern void wake_up(pcb_t *process) {
  */
 static void addReadyProcess(pcb_t* proc) {
 
-  // ensure no other process can access ready list while we update it
-  pthread_mutex_lock(&ready_mutex);
+	// ensure no other process can access ready list while we update it
+	pthread_mutex_lock(&ready_mutex);
 
-  // add this process to the end of the ready list
-  if (head == NULL) {
-    head = proc;
-    tail = proc;
-    // if list was empty may need to wake up idle process
-    pthread_cond_signal(&ready_empty);
-  }
-  else {
-    tail->next = proc;
-    tail = proc;
-  }
+	// add this process to the end of the ready list
+	if (head == NULL) {
+		head = proc;
+		tail = proc;
+		// if list was empty may need to wake up idle process
+		pthread_cond_signal(&ready_empty);
+	}
+	else {
+		tail->next = proc;
+		tail = proc;
+	}
 
-  // ensure that this proc points to NULL
-  proc->next = NULL;
+	// ensure that this proc points to NULL
+	proc->next = NULL;
 
-  pthread_mutex_unlock(&ready_mutex);
+	pthread_mutex_unlock(&ready_mutex);
 }
 
 
@@ -254,23 +263,23 @@ static void addReadyProcess(pcb_t* proc) {
  */
 static pcb_t* getReadyProcess(void) {
 
-  // ensure no other process can access ready list while we update it
-  pthread_mutex_lock(&ready_mutex);
+	// ensure no other process can access ready list while we update it
+	pthread_mutex_lock(&ready_mutex);
 
-  // if list is empty, unlock and return null
-  if (head == NULL) {
-	  pthread_mutex_unlock(&ready_mutex);
-	  return NULL;
-  }
+	// if list is empty, unlock and return null
+	if (head == NULL) {
+		pthread_mutex_unlock(&ready_mutex);
+		return NULL;
+	}
 
-  // get first process to return and update head to point to next process
-  pcb_t* first = head;
-  head = first->next;
+	// get first process to return and update head to point to next process
+	pcb_t* first = head;
+	head = first->next;
 
-  // if there was no next process, list is now empty, set tail to NULL
-  if (head == NULL) tail = NULL;
+	// if there was no next process, list is now empty, set tail to NULL
+	if (head == NULL) tail = NULL;
 
-  pthread_mutex_unlock(&ready_mutex);
-  return first;
+	pthread_mutex_unlock(&ready_mutex);
+	return first;
 }
 
