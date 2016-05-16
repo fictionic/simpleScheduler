@@ -91,7 +91,6 @@ int main(int argc, char *argv[]) {
 	fflush(stdout);
 	start_simulator(cpu_count);
 
-
 	return 0;
 }
 
@@ -129,21 +128,20 @@ extern void idle(unsigned int cpu_id)
  * THIS FUNCTION IS PARTIALLY COMPLETED - REQUIRES MODIFICATION
  */
 static void schedule(unsigned int cpu_id) {
+	pcb_t* proc = getReadyProcess();
+	pthread_mutex_lock(&current_mutex);
+	current[cpu_id] = proc;
+	pthread_mutex_unlock(&current_mutex);
+	if (proc!=NULL) {
+		proc->state = PROCESS_RUNNING;
+	}
 	switch(alg) {
 		case FIFO:
-			pcb_t* proc = getReadyProcess();
-			pthread_mutex_lock(&current_mutex);
-			current[cpu_id] = proc;
-			pthread_mutex_unlock(&current_mutex);
-			if (proc!=NULL) {
-				proc->state = PROCESS_RUNNING;
-			}
 			context_switch(cpu_id, proc, -1); 
 			break;
-
 		case RoundRobin:
+			context_switch(cpu_id, proc, time_slice); 
 			break;
-
 		case StaticPriority:
 			break;
 	}
@@ -159,6 +157,16 @@ static void schedule(unsigned int cpu_id) {
  * THIS FUNCTION MUST BE IMPLEMENTED FOR ROUND ROBIN OR PRIORITY SCHEDULING
  */
 extern void preempt(unsigned int cpu_id) {
+	// get proc currently on given cpu
+	pthread_mutex_lock(&current_mutex);
+	pcb_t* proc = current[cpu_id];
+	pthread_mutex_unlock(&current_mutex);
+	// remove the process from the cpu
+	proc->state = PROCESS_READY;
+	// add the process to the ready queue
+	addReadyProcess(proc);
+	// schedule a new process on the given cpu
+	schedule(cpu_id);
 }
 
 
