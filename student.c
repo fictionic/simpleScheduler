@@ -47,16 +47,16 @@ int main(int argc, char *argv[]) {
 	 * if -r, use round robin to schedule (must be 3rd arg of time_slice)
 	 * if -p, use static priority to schedule
 	 */
-	if (argc == 2) {
+	if(argc == 2) {
 		alg = FIFO;
 		printf("running with basic FIFO\n");
 
-	} else if (argc > 2 && strcmp(argv[2],"-r")==0 && argc > 3) {
+	} else if(argc > 2 && strcmp(argv[2],"-r")==0 && argc > 3) {
 		alg = RoundRobin;
 		time_slice = atoi(argv[3]);
 		printf("running with round robin, time slice = %d\n", time_slice);
 
-	} else if (argc > 2 && strcmp(argv[2],"-p")==0) {
+	} else if(argc > 2 && strcmp(argv[2],"-p")==0) {
 		alg = StaticPriority;
 		printf("running with static priority\n");
 
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
  */
 extern void idle(unsigned int cpu_id) {
 	pthread_mutex_lock(&ready_mutex);
-	while (head == NULL) {
+	while(head == NULL) {
 		pthread_cond_wait(&ready_empty, &ready_mutex);
 	}
 	pthread_mutex_unlock(&ready_mutex);
@@ -131,7 +131,7 @@ static void schedule(unsigned int cpu_id) {
 	current[cpu_id] = proc;
 	pthread_mutex_unlock(&current_mutex);
 
-	if (proc!=NULL) {
+	if(proc!=NULL) {
 		proc->state = PROCESS_RUNNING;
 	}
 
@@ -225,23 +225,28 @@ extern void wake_up(pcb_t *process) {
 	process->state = PROCESS_READY;
 	addReadyProcess(process);
 
-	if (alg == StaticPriority) {
+	if(alg == StaticPriority) {
 		unsigned int min_priority = process->static_priority;
 		int min_prio_cpu = -1;
 
 		pthread_mutex_lock(&current_mutex);
 		for (int i = 0; i < cpu_count; i++) {
-			if (current[i] == NULL) {
-				min_prio_cpu = i;
+			if(current[i] == NULL) {
+				min_prio_cpu = -1;
 				break;
-			} else if (current[i]->static_priority < min_priority) {
+			} else if(current[i]->static_priority < min_priority) {
 				min_priority = current[i]->static_priority;
 				min_prio_cpu = i;
 			}
 		}
 
-		pthread_mutex_unlock(&current_mutex);
-		if (min_prio_cpu > -1) { force_preempt(min_prio_cpu); }
+		if(min_prio_cpu > -1) { 
+			current[min_prio_cpu]->state = PROCESS_READY;
+			pthread_mutex_unlock(&current_mutex);
+			force_preempt(min_prio_cpu); 
+		} else {
+			pthread_mutex_unlock(&current_mutex);
+		}
 	}
 }
 
@@ -259,7 +264,7 @@ static void addReadyProcess(pcb_t* proc) {
 	pthread_mutex_lock(&ready_mutex);
 
 	// add this process to the end of the ready list
-	if (head == NULL) {
+	if(head == NULL) {
 		head = proc;
 		tail = proc;
 		// if list was empty may need to wake up idle process
@@ -292,7 +297,7 @@ static pcb_t* getReadyProcess(void) {
 	pthread_mutex_lock(&ready_mutex);
 
 	// if list is empty, unlock and return null
-	if (head == NULL) {
+	if(head == NULL) {
 		pthread_mutex_unlock(&ready_mutex);
 		return NULL;
 	}
@@ -309,8 +314,8 @@ static pcb_t* getReadyProcess(void) {
 
 		case StaticPriority:
 			// find the process with the highest priority
-			while (cur_proc != NULL) {
-				if (cur_proc->static_priority > ready_proc->static_priority)
+			while(cur_proc != NULL) {
+				if(cur_proc->static_priority > ready_proc->static_priority)
 					ready_proc = cur_proc;
 				cur_proc = cur_proc->next;
 			}
@@ -318,18 +323,22 @@ static pcb_t* getReadyProcess(void) {
 			// find the previous process in the list
 			pcb_t* previous_proc = head;
 			cur_proc = head;
-			while (cur_proc != ready_proc && cur_proc != NULL) {
+			while(cur_proc != ready_proc && cur_proc != NULL) {
 				previous_proc = cur_proc;
 				cur_proc = cur_proc->next;
 			}
-
-			if (ready_proc == head) { head = ready_proc->next; }
-			else { previous_proc->next = ready_proc->next; }
+			if(ready_proc == head) {
+				head = ready_proc->next; 
+			}
+			else {
+				previous_proc->next = ready_proc->next;
+			}
 			break;
 	}
 
 	// if there was no next process, list is now empty, set tail to NULL
-	if (head == NULL) tail = NULL;
+	if(head == NULL)
+		tail = NULL;
 
 	pthread_mutex_unlock(&ready_mutex);
 	return ready_proc;
