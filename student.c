@@ -220,14 +220,25 @@ extern void terminate(unsigned int cpu_id) {
  * THIS FUNCTION IS PARTIALLY COMPLETED - REQUIRES MODIFICATION
  */
 extern void wake_up(pcb_t *process) {
-	switch(alg) {
-		case FIFO: // fall through
-		case RoundRobin:
-			process->state = PROCESS_READY;
-			addReadyProcess(process);
-			break;
-		case StaticPriority:
-			break;
+	process->state = PROCESS_READY;
+	addReadyProcess(process);
+
+	if (alg == StaticPriority) {
+		unsigned int min_priority = process->static_priority;
+		unsigned int min_prio_cpu = -1;
+
+		pthread_mutex_lock(&current_mutex);
+		for (unsigned int i = 0; i < cpu_count; i++) {
+			if (current[i]->static_priority < min_priority) {
+				min_priority = current[i]->static_priority;
+				min_prio_cpu = i;
+			}
+		}
+
+		if (preempt_cpu > -1) {
+			force_preempt(min_prio_cpu);
+		}
+		pthread_mutex_unlock(&current_mutex)
 	}
 }
 
