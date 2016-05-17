@@ -1,0 +1,41 @@
+============================================================
+Round Robin Scheduler
+============================================================
+
+--------------------------------------------
+With 800ms timeslice:
+
+# of Context Switches: 135
+Total execution time: 67.6 s
+Total time spent in READY state: 325.6 s
+
+
+--------------------------------------------
+With 600ms timeslice:
+
+# of Context Switches: 160
+Total execution time: 67.6 s
+Total time spent in READY state: 314.7 s
+
+
+--------------------------------------------
+With 400ms timeslice:
+
+# of Context Switches: 202
+Total execution time: 67.6 s
+Total time spent in READY state: 298.9 s
+
+
+--------------------------------------------
+With 200ms timeslice:
+
+# of Context Switches: 362
+Total execution time: 67.5 s
+Total time spent in READY state: 285.3 s
+
+
+
+============================================================
+Static Priority Scheduler
+============================================================
+
