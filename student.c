@@ -159,7 +159,8 @@ static void schedule(unsigned int cpu_id) {
 extern void preempt(unsigned int cpu_id) {
 	// remove the process from the cpu
 	pthread_mutex_lock(&current_mutex);
-	current[cpu_id]->state = PROCESS_READY;
+	pcb_t* proc = current[cpu_id];
+	proc->state = PROCESS_READY;
 	pthread_mutex_unlock(&current_mutex);
 
 	// add the process to the ready queue and schedule a new process
@@ -235,10 +236,10 @@ extern void wake_up(pcb_t *process) {
 			}
 		}
 
-		if (preempt_cpu > -1) {
+		if (min_prio_cpu > -1) {
 			force_preempt(min_prio_cpu);
 		}
-		pthread_mutex_unlock(&current_mutex)
+		pthread_mutex_unlock(&current_mutex);
 	}
 }
 
@@ -285,30 +286,45 @@ static void addReadyProcess(pcb_t* proc) {
  * THIS FUNCTION IS PARTIALLY COMPLETED - REQUIRES MODIFICATION
  */
 static pcb_t* getReadyProcess(void) {
+	// ensure no other process can access ready list while we update it
+	pthread_mutex_lock(&ready_mutex);
+
+	// if list is empty, unlock and return null
+	if (head == NULL) {
+		pthread_mutex_unlock(&ready_mutex);
+		return NULL;
+	}
+
+	pcb_t* ready_proc = head;
+	pcb_t* cur_proc = head;
+	pcb_t* previous_proc = head;
+
 	switch(alg) {
 		case FIFO: // fall through
 		case RoundRobin:
-			// ensure no other process can access ready list while we update it
-			pthread_mutex_lock(&ready_mutex);
-
-			// if list is empty, unlock and return null
-			if (head == NULL) {
-				pthread_mutex_unlock(&ready_mutex);
-				return NULL;
-			}
-
 			// get first process to return and update head to point to next process
-			pcb_t* first = head;
-			head = first->next;
-
-			// if there was no next process, list is now empty, set tail to NULL
-			if (head == NULL) tail = NULL;
-
-			pthread_mutex_unlock(&ready_mutex);
-			return first;
+			head = ready_proc->next;
 			break;
 
 		case StaticPriority:
+			// find the process with the highest priority
+			while (cur_proc->next != NULL) {
+				if (cur_proc->next->static_priority > ready_proc->static_priority) {
+					ready_proc = cur_proc->next;
+					previous_proc = cur_proc;
+				}
+
+				cur_proc = cur_proc->next;
+			}
+
+			if (ready_proc == head) { head = ready_proc->next; }
+			else { previous_proc->next = ready_proc->next; }
 			break;
 	}
+
+	// if there was no next process, list is now empty, set tail to NULL
+	if (head == NULL) tail = NULL;
+
+	pthread_mutex_unlock(&ready_mutex);
+	return ready_proc;
 }
