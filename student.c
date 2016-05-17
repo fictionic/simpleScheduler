@@ -143,6 +143,7 @@ static void schedule(unsigned int cpu_id) {
 			context_switch(cpu_id, proc, time_slice);
 			break;
 		case StaticPriority:
+			context_switch(cpu_id, proc, -1);
 			break;
 	}
 }
@@ -230,7 +231,11 @@ extern void wake_up(pcb_t *process) {
 
 		pthread_mutex_lock(&current_mutex);
 		for (unsigned int i = 0; i < cpu_count; i++) {
-			if (current[i]->static_priority < min_priority) {
+			if (current[i] == NULL) {
+				min_priority = 0;
+				min_prio_cpu = i;
+				break;
+			} else if (current[i]->static_priority < min_priority) {
 				min_priority = current[i]->static_priority;
 				min_prio_cpu = i;
 			}
@@ -297,7 +302,6 @@ static pcb_t* getReadyProcess(void) {
 
 	pcb_t* ready_proc = head;
 	pcb_t* cur_proc = head;
-	pcb_t* previous_proc = head;
 
 	switch(alg) {
 		case FIFO: // fall through
@@ -308,12 +312,17 @@ static pcb_t* getReadyProcess(void) {
 
 		case StaticPriority:
 			// find the process with the highest priority
-			while (cur_proc->next != NULL) {
-				if (cur_proc->next->static_priority > ready_proc->static_priority) {
-					ready_proc = cur_proc->next;
-					previous_proc = cur_proc;
-				}
+			while (cur_proc != NULL) {
+				if (cur_proc->static_priority > ready_proc->static_priority)
+					ready_proc = cur_proc;
+				cur_proc = cur_proc->next;
+			}
 
+			// find the previous process in the list
+			pcb_t* previous_proc = head;
+			cur_proc = head;
+			while (cur_proc != ready_proc && cur_proc != NULL) {
+				previous_proc = cur_proc;
 				cur_proc = cur_proc->next;
 			}
 
