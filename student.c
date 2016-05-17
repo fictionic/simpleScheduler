@@ -242,6 +242,7 @@ extern void wake_up(pcb_t *process) {
 		pthread_mutex_unlock(&current_mutex);
 		if(min_prio_cpu > -1) {
 			force_preempt(min_prio_cpu);
+			schedule(min_prio_cpu);
 		}
 	}
 }
@@ -255,6 +256,7 @@ extern void wake_up(pcb_t *process) {
  * it takes a pointer to a process as an argument and has no return
  */
 static void addReadyProcess(pcb_t* proc) {
+	printf("addReadyProcess\n");
 
 	// ensure no other process can access ready list while we update it
 	pthread_mutex_lock(&ready_mutex);
@@ -280,7 +282,6 @@ static void addReadyProcess(pcb_t* proc) {
 			case StaticPriority:
 				{ // (needs to be in a block, cuz we need to declare things)
 					// insert proc into list in order of priority
-					pthread_mutex_lock(&ready_mutex);
 					pcb_t* cur_proc = head;
 					// first find where it should go
 					while(cur_proc->next != NULL && cur_proc->static_priority < proc->static_priority) {
@@ -294,7 +295,6 @@ static void addReadyProcess(pcb_t* proc) {
 					if(proc->next == NULL) {
 						tail = proc;
 					}
-					pthread_mutex_unlock(&ready_mutex);
 				}
 		}
 	}
@@ -313,21 +313,21 @@ static void addReadyProcess(pcb_t* proc) {
  * THIS FUNCTION IS PARTIALLY COMPLETED - REQUIRES MODIFICATION
  */
 static pcb_t* getReadyProcess(void) {
+	printf("getReadyProcess\n");
 	pthread_mutex_lock(&ready_mutex);
-
+	pcb_t* ret;
 	// if list is empty, unlock and return null
 	if (head == NULL) {
-		pthread_mutex_unlock(&ready_mutex);
-		return NULL;
+		ret = NULL;
 	} else {
-		pcb_t* ret = head;
+		ret = head;
 		// if there was no next process, list is now empty, so set tail to NULL
 		if(head->next == NULL) {
 			tail = NULL;
 		} else {
 			head = head->next;
 		}
-		pthread_mutex_unlock(&ready_mutex);
-		return ret;
 	}
+	pthread_mutex_unlock(&ready_mutex);
+	return ret;
 }
