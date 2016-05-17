@@ -227,12 +227,11 @@ extern void wake_up(pcb_t *process) {
 
 	if (alg == StaticPriority) {
 		unsigned int min_priority = process->static_priority;
-		unsigned int min_prio_cpu = -1;
+		int min_prio_cpu = -1;
 
 		pthread_mutex_lock(&current_mutex);
-		for (unsigned int i = 0; i < cpu_count; i++) {
+		for (int i = 0; i < cpu_count; i++) {
 			if (current[i] == NULL) {
-				min_priority = 0;
 				min_prio_cpu = i;
 				break;
 			} else if (current[i]->static_priority < min_priority) {
@@ -241,10 +240,8 @@ extern void wake_up(pcb_t *process) {
 			}
 		}
 
-		if (min_prio_cpu > -1) {
-			force_preempt(min_prio_cpu);
-		}
 		pthread_mutex_unlock(&current_mutex);
+		if (min_prio_cpu > -1) { force_preempt(min_prio_cpu); }
 	}
 }
 
