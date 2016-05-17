@@ -18,6 +18,7 @@
 static void addReadyProcess(pcb_t* proc);
 static pcb_t* getReadyProcess(void);
 static void schedule(unsigned int cpu_id);
+static void printReadyQueue();
 
 /*
  * enum is useful C language construct to associate desriptive words with integer values
@@ -87,7 +88,6 @@ int main(int argc, char *argv[]) {
 
 	/* Start the simulator in the library */
 	printf("starting simulator\n");
-	fflush(stdout);
 	start_simulator(cpu_count);
 
 	return 0;
@@ -131,19 +131,17 @@ static void schedule(unsigned int cpu_id) {
 	current[cpu_id] = proc;
 	pthread_mutex_unlock(&current_mutex);
 
-	if (proc!=NULL) {
+	if (proc != NULL) {
 		proc->state = PROCESS_RUNNING;
 	}
 
 	switch(alg) {
 		case FIFO:
+		case StaticPriority:
 			context_switch(cpu_id, proc, -1);
 			break;
 		case RoundRobin:
 			context_switch(cpu_id, proc, time_slice);
-			break;
-		case StaticPriority:
-			context_switch(cpu_id, proc, -1);
 			break;
 	}
 }
@@ -224,7 +222,6 @@ extern void wake_up(pcb_t *process) {
 	process->state = PROCESS_READY;
 	addReadyProcess(process);
 	if(alg == StaticPriority) {
-		pthread_mutex_lock(&current_mutex);
 		// see if we need to force-preempt a CPU
 		unsigned int min_priority = process->static_priority;
 		int min_prio_cpu = -1;
@@ -242,7 +239,6 @@ extern void wake_up(pcb_t *process) {
 		pthread_mutex_unlock(&current_mutex);
 		if(min_prio_cpu > -1) {
 			force_preempt(min_prio_cpu);
-			schedule(min_prio_cpu);
 		}
 	}
 }
@@ -256,16 +252,16 @@ extern void wake_up(pcb_t *process) {
  * it takes a pointer to a process as an argument and has no return
  */
 static void addReadyProcess(pcb_t* proc) {
-	printf("addReadyProcess\n");
-
 	// ensure no other process can access ready list while we update it
 	pthread_mutex_lock(&ready_mutex);
+
 
 	// add this process to the end of the ready list
 	if (head == NULL) {
 		// if it's empty
 		head = proc;
 		tail = proc;
+		proc->next = NULL;
 		// if list was empty may need to wake up idle process
 		pthread_cond_signal(&ready_empty);
 	} else {
@@ -294,13 +290,13 @@ static void addReadyProcess(pcb_t* proc) {
 					// possibly update tail
 					if(proc->next == NULL) {
 						tail = proc;
+						tail->next = NULL;
 					}
 				}
 		}
 	}
 	pthread_mutex_unlock(&ready_mutex);
 }
-
 
 /*
  * getReadyProcess removes a process from the front of a pseudo linked list (each process
@@ -313,21 +309,39 @@ static void addReadyProcess(pcb_t* proc) {
  * THIS FUNCTION IS PARTIALLY COMPLETED - REQUIRES MODIFICATION
  */
 static pcb_t* getReadyProcess(void) {
-	printf("getReadyProcess\n");
 	pthread_mutex_lock(&ready_mutex);
 	pcb_t* ret;
-	// if list is empty, unlock and return null
 	if (head == NULL) {
+		// if list is empty, unlock and return null
 		ret = NULL;
 	} else {
 		ret = head;
-		// if there was no next process, list is now empty, so set tail to NULL
-		if(head->next == NULL) {
+		// otherwise remove selected process from queue
+		head = head->next;
+		if(head == NULL) {
 			tail = NULL;
-		} else {
-			head = head->next;
 		}
 	}
 	pthread_mutex_unlock(&ready_mutex);
 	return ret;
 }
+
+void printReadyQueue() {
+	pcb_t* cur_proc = head;
+	int c = 0;
+	printf("< ");
+    while (cur_proc != NULL)
+    {
+		printf("%s ", cur_proc->name);
+		cur_proc = cur_proc->next;
+		c++;
+		if(c > 8) {
+			printf("NOOOOO\n");
+			exit(1);
+			break;
+		}
+    }
+	printf("< ");
+	printf("\n");
+}
+
