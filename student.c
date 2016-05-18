@@ -127,21 +127,25 @@ extern void idle(unsigned int cpu_id) {
  */
 static void schedule(unsigned int cpu_id) {
 	pcb_t* proc = getReadyProcess();
+
 	pthread_mutex_lock(&current_mutex);
 	current[cpu_id] = proc;
 	pthread_mutex_unlock(&current_mutex);
 
-	if(proc!=NULL) {
+	if (proc != NULL) {
 		proc->state = PROCESS_RUNNING;
 	}
 
 	switch(alg) {
-		case FIFO:
+		// run next process until complete
+		case FIFO: // fall through
 			context_switch(cpu_id, proc, -1);
 			break;
+		// run next process until quantum is up
 		case RoundRobin:
 			context_switch(cpu_id, proc, time_slice);
 			break;
+		// run next process until complete or interupted by higher priority
 		case StaticPriority:
 			context_switch(cpu_id, proc, -1);
 			break;
@@ -225,28 +229,29 @@ extern void wake_up(pcb_t *process) {
 	process->state = PROCESS_READY;
 	addReadyProcess(process);
 
-	if(alg == StaticPriority) {
+	//
+	if (alg == StaticPriority) {
 		unsigned int min_priority = process->static_priority;
 		int min_prio_cpu = -1;
 
+		// find the cpu with the lowest priority process, if any are running
+		// a process with lower priority than the new process
 		pthread_mutex_lock(&current_mutex);
 		for (int i = 0; i < cpu_count; i++) {
-			if(current[i] == NULL) {
-				min_prio_cpu = -1;
+			// exit if any of the cpus are currently idle
+			if (current[i] == NULL) {
+				min_prio_cpu = i;
 				break;
-			} else if(current[i]->static_priority < min_priority) {
+			// save the new minimum priority cpu
+			} else if (current[i]->static_priority < min_priority) {
 				min_priority = current[i]->static_priority;
 				min_prio_cpu = i;
 			}
 		}
+		pthread_mutex_unlock(&current_mutex);
 
-		if(min_prio_cpu > -1) { 
-			current[min_prio_cpu]->state = PROCESS_READY;
-			pthread_mutex_unlock(&current_mutex);
-			force_preempt(min_prio_cpu); 
-		} else {
-			pthread_mutex_unlock(&current_mutex);
-		}
+		// interupt a cpu if we found one running a lower priority process
+		if (min_prio_cpu > -1) { force_preempt(min_prio_cpu); }
 	}
 }
 
@@ -303,7 +308,6 @@ static pcb_t* getReadyProcess(void) {
 	}
 
 	pcb_t* ready_proc = head;
-	pcb_t* cur_proc = head;
 
 	switch(alg) {
 		case FIFO: // fall through
@@ -311,8 +315,8 @@ static pcb_t* getReadyProcess(void) {
 			// get first process to return and update head to point to next process
 			head = ready_proc->next;
 			break;
-
-		case StaticPriority:
+		case StaticPriority: { // inside a block for correct C declaration syntax
+			pcb_t* cur_proc = head;
 			// find the process with the highest priority
 			while(cur_proc != NULL) {
 				if(cur_proc->static_priority > ready_proc->static_priority)
@@ -327,13 +331,19 @@ static pcb_t* getReadyProcess(void) {
 				previous_proc = cur_proc;
 				cur_proc = cur_proc->next;
 			}
-			if(ready_proc == head) {
-				head = ready_proc->next; 
-			}
-			else {
+
+			// set head/tail if the highest priority process is the first or
+			// last one in the list
+			if (ready_proc == head) {
+				head = ready_proc->next;
+			} else if (ready_proc == tail) {
+				tail = previous_proc;
+				tail->next = NULL;
+			} else {
 				previous_proc->next = ready_proc->next;
 			}
 			break;
+		}
 	}
 
 	// if there was no next process, list is now empty, set tail to NULL
