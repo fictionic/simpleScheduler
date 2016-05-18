@@ -323,8 +323,14 @@ static pcb_t* getReadyProcess(void) {
 				cur_proc = cur_proc->next;
 			}
 
-			if (ready_proc == head) { head = ready_proc->next; }
-			else { previous_proc->next = ready_proc->next; }
+			if (ready_proc == head) {
+				head = ready_proc->next;
+			} else if (ready_proc == tail) {
+				tail = previous_proc;
+				tail->next = NULL;
+			} else {
+				previous_proc->next = ready_proc->next;
+			}
 			break;
 	}
 
