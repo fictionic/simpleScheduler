@@ -1,4 +1,5 @@
 /*
+ * Ben Withbroe and Dylan Forbes
  * student.c
  * This file contains the CPU scheduler for the simulation.
  * original base code from http://www.cc.gatech.edu/~rama/CS2200

@@ -1,0 +1,18 @@
+Ben Withbroe and Dylan Forbes
+answers.txt
+
+Question 1:
+It does not appear that there is a linear relationship between the number of CPUs and the total execution time. After going from 1 to 2 CPUs, any more has barely any effect. This is likely because at any given time there aren't very many processes on the ready queue (either because they're waiting for I/O or not started yet). Adding more CPUs beyond the maximum number of processes in the READY state (or even getting near the number) will give no extra boost in run time.
+
+Question 2:
+800ms - 325.4s waiting
+600ms - 314.5s waiting
+400ms - 299.2s waiting
+200ms - 285.3s waiting
+In a real OS, a tiny timeslice would generally be a bad idea because you would spend too much time in context switches. Timeslices comparable to the time required for a context switch drastically reduce the amount of time actually spent running. If the timeslice is less than the context switch time, the OS is switching for more time than it is running processes!
+
+Question 3:
+FIFO - 390.1s waiting
+Round Robin - 285 to 325s waiting
+Static Priority Scheduler - 138.1s waiting
+It seems pretty clear that the static priority scheduler is the closest approximation of SJF from the perspective of waiting time. This makes sense- the I/O bound processes have the highest priorities, and are also in general the shortest jobs (by assumption- I suppose it is possible that an I/O bound process also takes forever on the CPU but even more time in I/O). Thus SPS is to some degree running SJF. 
